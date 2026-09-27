@@ -6,6 +6,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const browseBtn = document.getElementById('browse-btn');
     const fileInput = document.getElementById('file-input');
     const uploadZone = document.getElementById('upload-zone');
+    const uploadStatus = document.getElementById('upload-status');
+    const uploadStatusText = document.getElementById('upload-status-text');
+    
+    const awsLogGroup = document.getElementById('aws-log-group');
+    const awsIngestBtn = document.getElementById('aws-ingest-btn');
     
     // Auto-scroll chat to bottom
     function scrollToBottom() {
@@ -13,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Handle sending message
-    function sendMessage() {
+    async function sendMessage() {
         const text = chatInput.value.trim();
         if (!text) return;
         
@@ -26,17 +31,54 @@ document.addEventListener('DOMContentLoaded', () => {
         chatInput.value = '';
         scrollToBottom();
         
-        // Mock Bot Response
-        setTimeout(() => {
-            const botMsg = document.createElement('div');
-            botMsg.className = 'message bot';
-            botMsg.innerHTML = `
-                <div class="avatar"><i class="fa-solid fa-robot"></i></div>
-                <div class="content">This is a mockup! I am echoing back your text: <br><br><em>"${text}"</em><br><br>Once you approve the design, I'll connect it to the real RAG backend!</div>
-            `;
-            chatHistory.appendChild(botMsg);
-            scrollToBottom();
-        }, 600);
+        // Setup Bot Response block
+        const botMsg = document.createElement('div');
+        botMsg.className = 'message bot';
+        botMsg.innerHTML = `
+            <div class="avatar"><i class="fa-solid fa-robot"></i></div>
+            <div class="content"><span class="typing">...</span></div>
+        `;
+        chatHistory.appendChild(botMsg);
+        scrollToBottom();
+        
+        const contentDiv = botMsg.querySelector('.content');
+        
+        // Stream from API
+        try {
+            const eventSource = new EventSource(`/api/chat?q=${encodeURIComponent(text)}`);
+            let fullText = "";
+            let firstChunk = true;
+            
+            eventSource.onmessage = function(event) {
+                if (firstChunk) {
+                    contentDiv.innerHTML = '';
+                    firstChunk = false;
+                }
+                
+                try {
+                    const chunk = JSON.parse(event.data);
+                    fullText += chunk;
+                    
+                    // Parse markdown safely
+                    if (window.marked) {
+                        contentDiv.innerHTML = marked.parse(fullText);
+                    } else {
+                        // Fallback
+                        contentDiv.innerHTML = fullText.replace(/\\n/g, '<br>');
+                    }
+                } catch (e) {
+                    console.error("Error parsing JSON chunk", e);
+                }
+                
+                scrollToBottom();
+            };
+            
+            eventSource.onerror = function() {
+                eventSource.close();
+            };
+        } catch (error) {
+            contentDiv.innerHTML = `Error connecting to chat server.`;
+        }
     }
 
     sendBtn.addEventListener('click', sendMessage);
@@ -44,14 +86,44 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') sendMessage();
     });
 
-    // Handle file upload UI
+    // Handle Local File Upload
+    async function handleFileUpload(file) {
+        uploadStatus.style.display = 'flex';
+        uploadStatusText.textContent = 'Uploading and processing...';
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        try {
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            
+            if (response.ok) {
+                uploadStatusText.textContent = 'Success!';
+                uploadStatusText.style.color = '#10b981';
+            } else {
+                uploadStatusText.textContent = data.detail || 'Error uploading.';
+                uploadStatusText.style.color = '#ef4444';
+            }
+        } catch (error) {
+            uploadStatusText.textContent = 'Connection error.';
+            uploadStatusText.style.color = '#ef4444';
+        }
+        
+        setTimeout(() => {
+            uploadStatus.style.display = 'none';
+            uploadStatusText.style.color = 'inherit';
+        }, 5000);
+    }
+
     browseBtn.addEventListener('click', () => fileInput.click());
     
     fileInput.addEventListener('change', () => {
         if (fileInput.files.length > 0) {
-            browseBtn.textContent = fileInput.files[0].name;
-            browseBtn.style.background = 'rgba(16, 185, 129, 0.2)';
-            browseBtn.style.borderColor = '#10b981';
+            handleFileUpload(fileInput.files[0]);
         }
     });
 
@@ -69,10 +141,40 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         uploadZone.classList.remove('dragover');
         if (e.dataTransfer.files.length > 0) {
-            fileInput.files = e.dataTransfer.files;
-            browseBtn.textContent = e.dataTransfer.files[0].name;
-            browseBtn.style.background = 'rgba(16, 185, 129, 0.2)';
-            browseBtn.style.borderColor = '#10b981';
+            handleFileUpload(e.dataTransfer.files[0]);
+        }
+    });
+    
+    // Handle AWS CloudWatch Ingest
+    awsIngestBtn.addEventListener('click', async () => {
+        const logGroup = awsLogGroup.value.trim();
+        if (!logGroup) {
+            alert('Please enter a valid Log Group name.');
+            return;
+        }
+        
+        awsIngestBtn.textContent = 'Fetching...';
+        awsIngestBtn.disabled = true;
+        
+        try {
+            const response = await fetch('/api/ingest_aws', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ log_group: logGroup })
+            });
+            const data = await response.json();
+            
+            if (response.ok) {
+                alert('Success: ' + data.message);
+                awsLogGroup.value = '';
+            } else {
+                alert('Error: ' + (data.detail || 'Failed to fetch logs.'));
+            }
+        } catch (error) {
+            alert('Connection error.');
+        } finally {
+            awsIngestBtn.textContent = 'Fetch & Ingest';
+            awsIngestBtn.disabled = false;
         }
     });
 });

@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Software Audit Trail Chatbot</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
     <div class="background">
@@ -68,22 +69,8 @@
                 <div class="message bot">
                     <div class="avatar"><i class="fa-solid fa-robot"></i></div>
                     <div class="content">
-                        Hello! I am your Software Audit Trail Chatbot. I've been upgraded to a beautiful new interface.<br><br>
-                        You can use the sidebar to upload new log files, or ask me any questions about the logs currently stored in the database. What would you like to investigate today?
-                    </div>
-                </div>
-                <!-- Mock User Message -->
-                <div class="message user">
-                    <div class="content">
-                        Show me how this new interface handles text!
-                    </div>
-                </div>
-                <!-- Mock Bot Message -->
-                <div class="message bot">
-                    <div class="avatar"><i class="fa-solid fa-robot"></i></div>
-                    <div class="content">
-                        It looks absolutely <strong>stunning</strong>. Notice the translucent glass panels, the animated gradient orbs in the background, and the smooth hover effects! <br><br>
-                        This is just a mockup for you to approve before we hook it up to the real Python backend. Give the chat a try below!
+                        Hello! I am your Software Audit Trail Chatbot.<br><br>
+                        You can use the sidebar to upload new log files or ingest from AWS CloudWatch, then ask me any questions about the logs currently stored in the database. What would you like to investigate today?
                     </div>
                 </div>
             </div>
@@ -99,6 +86,6 @@
         </main>
     </div>
 
-    <script src="script.js"></script>
+    <script src="/static/script.js"></script>
 </body>
 </html>

@@ -86,23 +86,48 @@ class RAGService:
     def ask_question_stream(self, question: str):
         """
         Queries the RAG pipeline with a user question and streams the response.
-        
-        Args:
-            question (str): The user's question about the application logs.
-            
-        Yields:
-            str: Chunks of the LLM's response as they are generated.
         """
         if not question.strip():
             yield "Please provide a valid question."
             return
             
         try:
-            # Stream the LangChain RAG chain with the input question.
             for chunk in self.rag_chain.stream({"input": question}):
-                # Langchain's retrieval chain returns dict chunks. The actual text is under 'answer'
                 if "answer" in chunk:
                     yield chunk["answer"]
+        except Exception as e:
+            yield f"An error occurred while generating the answer: {str(e)}"
+
+    async def ask_question_astream(self, question: str):
+        """
+        Queries the RAG pipeline with a user question and streams the response asynchronously.
+        Guaranteed to stream token-by-token.
+        """
+        if not question.strip():
+            yield "Please provide a valid question."
+            return
+            
+        try:
+            # Retrieve documents
+            retriever = self.vector_store_manager.get_retriever()
+            # Some retrievers don't fully support ainvoke yet, fallback to invoke if needed.
+            # Using invoke in a threadpool is safest for synchronous retrievers, but standard invoke is fast enough usually.
+            try:
+                docs = await retriever.ainvoke(question)
+            except NotImplementedError:
+                docs = retriever.invoke(question)
+                
+            # Combine context
+            context_text = "\n\n".join(doc.page_content for doc in docs)
+            
+            # Construct final prompt
+            prompt = self.prompt_template.format_messages(context=context_text, input=question)
+            
+            # Stream directly from the LLM!
+            async for chunk in self.llm.astream(prompt):
+                if chunk.content:
+                    yield chunk.content
+                    
         except Exception as e:
             yield f"An error occurred while generating the answer: {str(e)}"
 
@@ -130,3 +155,16 @@ class RAGService:
             return f"Successfully ingested {original_filename}. Generated {num_chunks} chunks."
         except Exception as e:
             return f"Failed to ingest logs: {str(e)}"
+
+    def ingest_cloudwatch_logs(self, log_group_name: str) -> str:
+        """
+        Fetches logs from AWS CloudWatch and adds them to the vector store.
+        """
+        try:
+            saved_path = self.data_loader.fetch_from_cloudwatch(log_group_name)
+            filename = os.path.basename(saved_path)
+            chunks = self.data_loader.load_and_split(saved_path)
+            num_chunks = self.vector_store_manager.add_documents(chunks)
+            return f"Successfully ingested from {log_group_name}. Generated {num_chunks} chunks."
+        except Exception as e:
+            return f"Failed to ingest from CloudWatch: {str(e)}"

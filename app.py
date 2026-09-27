@@ -68,14 +68,12 @@ async def chat_endpoint(q: str):
         raise HTTPException(status_code=500, detail="System not ready.")
     
     async def event_generator():
+        import json
         try:
-            # rag_service.ask_question_stream is synchronous, but we can iterate it.
-            # In a real heavy async app, we'd use run_in_threadpool, but this is fine for now.
-            for chunk in rag_service.ask_question_stream(q):
-                yield {"data": chunk}
-                await asyncio.sleep(0.01)  # small yield to event loop
+            async for chunk in rag_service.ask_question_astream(q):
+                yield {"data": json.dumps(chunk)}
         except Exception as e:
-            yield {"data": f"\n\nError: {str(e)}"}
+            yield {"data": json.dumps(f"\n\nError: {str(e)}")}
             
     return EventSourceResponse(event_generator())
 
