@@ -8,8 +8,8 @@ class Settings:
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
     CHROMA_DB_DIR: str = os.getenv("CHROMA_DB_DIR", "./db")
     DATA_DIR: str = os.getenv("DATA_DIR", "./data")
-    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "models/embedding-001")
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "gemini-1.5-pro")
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "models/gemini-embedding-2")
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "gemini-3.5-flash")
 
     @classmethod
     def validate(cls):

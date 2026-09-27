@@ -1,5 +1,7 @@
 python-dotenv
+huggingface-hub<0.24.0
 gradio
+pydantic<2.9.0
 chromadb
 langchain
 langchain-community
