@@ -83,6 +83,29 @@ class RAGService:
         except Exception as e:
             return f"An error occurred while generating the answer: {str(e)}"
 
+    def ask_question_stream(self, question: str):
+        """
+        Queries the RAG pipeline with a user question and streams the response.
+        
+        Args:
+            question (str): The user's question about the application logs.
+            
+        Yields:
+            str: Chunks of the LLM's response as they are generated.
+        """
+        if not question.strip():
+            yield "Please provide a valid question."
+            return
+            
+        try:
+            # Stream the LangChain RAG chain with the input question.
+            for chunk in self.rag_chain.stream({"input": question}):
+                # Langchain's retrieval chain returns dict chunks. The actual text is under 'answer'
+                if "answer" in chunk:
+                    yield chunk["answer"]
+        except Exception as e:
+            yield f"An error occurred while generating the answer: {str(e)}"
+
     def ingest_logs(self, file_path: str, original_filename: str) -> str:
         """
         Processes a new log file and adds it to the vector store.

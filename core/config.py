@@ -10,6 +10,11 @@ class Settings:
     DATA_DIR: str = os.getenv("DATA_DIR", "./data")
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "models/gemini-embedding-2")
     LLM_MODEL: str = os.getenv("LLM_MODEL", "gemini-3.5-flash")
+    
+    # AWS Settings
+    AWS_ACCESS_KEY_ID: str = os.getenv("AWS_ACCESS_KEY_ID", "")
+    AWS_SECRET_ACCESS_KEY: str = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+    AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
 
     @classmethod
     def validate(cls):

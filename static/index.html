@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Software Audit Trail Chatbot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="background">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar glass-panel">
+            <div class="logo">
+                <i class="fa-solid fa-shield-halved"></i>
+                <h2>AuditNexus</h2>
+            </div>
+            
+            <div class="sidebar-section">
+                <h3><i class="fa-solid fa-database"></i> Data Ingestion</h3>
+                <p>Upload your application logs (.txt, .log) to chunk and embed into Chroma DB.</p>
+                
+                <div class="upload-zone" id="upload-zone">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <p>Drag & Drop logs here</p>
+                    <span class="or">- or -</span>
+                    <button class="btn-secondary" id="browse-btn">Browse Files</button>
+                    <input type="file" id="file-input" hidden>
+                </div>
+                
+                <div class="status-box" id="upload-status" style="display: none;">
+                    <div class="spinner"></div>
+                    <span id="upload-status-text">Processing logs...</span>
+                </div>
+            </div>
+            
+            <div class="sidebar-section">
+                <h3><i class="fa-brands fa-aws"></i> AWS CloudWatch</h3>
+                <p>Ingest latest logs directly from an AWS CloudWatch Log Group.</p>
+                
+                <div class="input-wrapper" style="margin-bottom: 12px;">
+                    <input type="text" id="aws-log-group" placeholder="/ecs/my-app-logs">
+                </div>
+                <button class="btn-secondary" id="aws-ingest-btn" style="width: 100%;">Fetch & Ingest</button>
+            </div>
+            
+            <div class="sidebar-footer">
+                <div class="status-indicator online"></div> System Ready
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-area glass-panel">
+            <header class="chat-header">
+                <h2><i class="fa-solid fa-bolt"></i> Gemini Log Assistant</h2>
+                <span class="badge">gemini-3.5-flash</span>
+            </header>
+            
+            <div class="chat-history" id="chat-history">
+                <!-- Welcome Message -->
+                <div class="message bot">
+                    <div class="avatar"><i class="fa-solid fa-robot"></i></div>
+                    <div class="content">
+                        Hello! I am your Software Audit Trail Chatbot. I've been upgraded to a beautiful new interface.<br><br>
+                        You can use the sidebar to upload new log files, or ask me any questions about the logs currently stored in the database. What would you like to investigate today?
+                    </div>
+                </div>
+                <!-- Mock User Message -->
+                <div class="message user">
+                    <div class="content">
+                        Show me how this new interface handles text!
+                    </div>
+                </div>
+                <!-- Mock Bot Message -->
+                <div class="message bot">
+                    <div class="avatar"><i class="fa-solid fa-robot"></i></div>
+                    <div class="content">
+                        It looks absolutely <strong>stunning</strong>. Notice the translucent glass panels, the animated gradient orbs in the background, and the smooth hover effects! <br><br>
+                        This is just a mockup for you to approve before we hook it up to the real Python backend. Give the chat a try below!
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-input-container">
+                <div class="input-wrapper">
+                    <input type="text" id="chat-input" placeholder="Query your audit logs...">
+                    <button class="btn-primary" id="send-btn">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

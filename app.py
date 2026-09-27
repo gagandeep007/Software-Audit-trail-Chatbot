@@ -1,75 +1,86 @@
-import gradio as gr
 import os
+import asyncio
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
+from sse_starlette.sse import EventSourceResponse
+import tempfile
+
 from services.rag_pipeline import RAGService
 from core.config import settings
 
-# Attempt to initialize RAG Service
-# It will fail if GOOGLE_API_KEY is not set, which is handled gracefully in UI below
+app = FastAPI(title="Software Audit Trail API")
+
+# Initialize RAG Service
 try:
     rag_service = RAGService()
     is_ready = True
-    init_message = "System is ready."
 except ValueError as e:
     rag_service = None
     is_ready = False
-    init_message = str(e) + "\nPlease set it in the .env file and restart the application."
+    print(f"Failed to initialize RAGService: {e}")
 
-def process_upload(file):
-    if not is_ready:
-        return "System is not ready. Please check API keys."
-    if file is None:
-        return "No file uploaded."
-    
-    # Gradio passes a temporary file path
-    file_path = file.name
-    original_filename = os.path.basename(file_path)
-    
-    # If the user uploaded something, process it
-    result = rag_service.ingest_logs(file_path, original_filename)
-    return result
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-def chat_interface(message, history):
-    if not is_ready:
-        return "System is not ready. Please check API keys."
-    
-    # Query the RAG pipeline
-    return rag_service.ask_question(message)
+class AWSIngestRequest(BaseModel):
+    log_group: str
 
-# Build the Gradio UI
-with gr.Blocks(title="Software Audit Trail Chatbot", theme=gr.themes.Soft()) as demo:
-    gr.Markdown("# 📝 Software Audit Trail Chatbot (RAG)")
-    
+@app.get("/", response_class=HTMLResponse)
+async def serve_index():
+    with open("static/index.html", "r") as f:
+        return f.read()
+
+@app.post("/api/upload")
+async def upload_logs(file: UploadFile = File(...)):
     if not is_ready:
-        gr.Markdown(f"### ⚠️ Initialization Error\n{init_message}")
+        raise HTTPException(status_code=500, detail="System not ready.")
     
-    with gr.Tabs():
-        with gr.Tab("💬 Chat"):
-            gr.Markdown("Ask questions about your ingested application logs.")
-            chat = gr.ChatInterface(
-                fn=chat_interface,
-                fill_height=True
-            )
+    # Save the file temporarily
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".log") as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+        
+    try:
+        result = rag_service.ingest_logs(tmp_path, file.filename)
+        return {"status": "success", "message": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        os.unlink(tmp_path)
+
+@app.post("/api/ingest_aws")
+async def ingest_aws_logs(req: AWSIngestRequest):
+    if not is_ready:
+        raise HTTPException(status_code=500, detail="System not ready.")
+    
+    try:
+        result = rag_service.ingest_cloudwatch_logs(req.log_group)
+        return {"status": "success", "message": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/chat")
+async def chat_endpoint(q: str):
+    if not is_ready:
+        raise HTTPException(status_code=500, detail="System not ready.")
+    
+    async def event_generator():
+        try:
+            # rag_service.ask_question_stream is synchronous, but we can iterate it.
+            # In a real heavy async app, we'd use run_in_threadpool, but this is fine for now.
+            for chunk in rag_service.ask_question_stream(q):
+                yield {"data": chunk}
+                await asyncio.sleep(0.01)  # small yield to event loop
+        except Exception as e:
+            yield {"data": f"\n\nError: {str(e)}"}
             
-        with gr.Tab("⚙️ Admin / Data Ingestion"):
-            gr.Markdown("### Upload Log Files")
-            gr.Markdown("Upload `.log` or `.txt` files containing application logs to be chunked, embedded, and stored in Chroma DB.")
-            
-            with gr.Row():
-                file_input = gr.File(label="Select Log File")
-                upload_button = gr.Button("Process & Ingest Logs", variant="primary")
-            
-            upload_status = gr.Textbox(label="Ingestion Status", interactive=False)
-            
-            upload_button.click(
-                fn=process_upload,
-                inputs=[file_input],
-                outputs=[upload_status]
-            )
+    return EventSourceResponse(event_generator())
 
 if __name__ == "__main__":
-    # Create necessary directories if they don't exist
+    import uvicorn
     os.makedirs(settings.DATA_DIR, exist_ok=True)
     os.makedirs(settings.CHROMA_DB_DIR, exist_ok=True)
-    
-    # Launch the Gradio app
-    demo.launch(server_name="0.0.0.0", server_port=7860)
+    uvicorn.run("app:app", host="0.0.0.0", port=7860, reload=True)
